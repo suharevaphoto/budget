@@ -1,0 +1,1309 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Калькулятор бюджета</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f4f4f2;
+      --card: #ffffff;
+      --soft: #fafafa;
+      --text: #111111;
+      --muted: #737373;
+      --line: #e6e4df;
+      --accent: #ff7a1a;
+      --danger: #d84a3a;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.07);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+    button { border: 0; cursor: pointer; }
+
+    .app {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 46px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .month-tools, .section-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn, .month-tools select {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      color: var(--text);
+      background: var(--card);
+      padding: 0 12px;
+      transition: transform 160ms ease, border-color 160ms ease;
+    }
+
+    .btn:hover, .month-tools select:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 122, 26, 0.5);
+    }
+
+    .btn.primary {
+      color: #fff;
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .card.total {
+      display: grid;
+      align-content: center;
+      min-height: 178px;
+      color: #fff;
+      background: #111;
+      border-color: #111;
+    }
+
+    .wide { grid-column: 1 / -1; }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .total .hint { color: rgba(255, 255, 255, 0.68); }
+
+    .fields, .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field, .editable-row {
+      display: grid;
+      align-items: center;
+      gap: 10px;
+      min-height: 50px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--soft);
+      padding: 8px 10px 8px 14px;
+    }
+
+    .field {
+      grid-template-columns: minmax(128px, 1fr) minmax(156px, 210px);
+    }
+
+    .editable-row {
+      grid-template-columns: minmax(120px, 1fr) minmax(150px, 210px) 34px 34px;
+    }
+
+    label {
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    input, select {
+      min-height: 36px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    input {
+      width: 100%;
+      padding: 0 10px;
+      text-align: right;
+    }
+
+    input.text-left { text-align: left; }
+    select { padding: 0 8px; }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(255, 122, 26, 0.14);
+    }
+
+    .money-input {
+      display: grid;
+      grid-template-columns: 1fr 76px;
+      gap: 6px;
+    }
+
+    .summary {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .summary-row, .purchase-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .summary strong { color: var(--text); }
+
+    .total-number {
+      margin-top: 12px;
+      font-size: clamp(38px, 7vw, 72px);
+      font-weight: 820;
+      line-height: 0.96;
+    }
+
+    .total-note {
+      margin-top: 14px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .orange { color: var(--accent); }
+
+    .purchase-form {
+      display: grid;
+      grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(150px, 180px)) auto;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .purchase-form input, .purchase-form select {
+      border-color: var(--line);
+      background: var(--soft);
+    }
+
+    .purchase-form > input:first-child { text-align: left; }
+
+    .add {
+      min-width: 44px;
+      border-radius: 14px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 24px;
+      line-height: 1;
+      box-shadow: 0 12px 26px rgba(255, 122, 26, 0.26);
+    }
+
+    .purchases {
+      display: grid;
+      gap: 8px;
+    }
+
+    .purchase-row {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--soft);
+      padding: 10px 10px 10px 14px;
+      animation: rise 220ms ease both;
+    }
+
+    .purchase-main strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .purchase-main span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+
+    .mini, .delete {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      border-radius: 12px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 18px;
+    }
+
+    .mini:hover {
+      color: var(--accent);
+      background: rgba(255, 122, 26, 0.1);
+    }
+
+    .delete:hover {
+      color: var(--danger);
+      background: rgba(216, 74, 58, 0.1);
+    }
+
+    .chart-wrap { height: 230px; }
+
+    /* ── Gist sync UI ── */
+    #settingsPanel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #settingsPanel.open { display: flex; }
+
+    .settings-box {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px;
+      width: min(480px, 94vw);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+    }
+    .settings-box h3 { margin: 0 0 6px; font-size: 20px; }
+    .settings-box p  { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .settings-box label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .settings-box input[type=text], .settings-box input[type=password] {
+      width: 100%; padding: 0 12px; min-height: 40px;
+      border: 1px solid var(--line); border-radius: 12px;
+      background: var(--soft); margin-bottom: 14px; font-size: 14px;
+    }
+    .settings-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,122,26,.13); outline: none; }
+    .settings-row { display: flex; gap: 8px; margin-top: 4px; }
+    .settings-row .btn { flex: 1; justify-content: center; }
+
+    .sync-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--muted);
+      min-width: 0;
+    }
+    .sync-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .sync-dot.ok   { background: #22c55e; }
+    .sync-dot.err  { background: var(--danger); }
+    .sync-dot.busy { background: var(--accent); animation: pulse 0.9s infinite; }
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+
+    /* ── Paid checkbox ── */
+    .paid-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 34px;
+    }
+
+    .paid-cb {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--line);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .paid-cb:checked {
+      background: #22c55e;
+      border-color: #22c55e;
+    }
+
+    .paid-cb:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 7px;
+      height: 11px;
+      border: 2px solid #fff;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+
+    .paid-cb:hover:not(:checked) {
+      border-color: #22c55e;
+    }
+
+    .editable-row.is-paid {
+      opacity: 0.48;
+    }
+
+    .editable-row.is-paid label,
+    .editable-row.is-paid input {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 940px) {
+      .app { padding: 18px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .month-tools { justify-content: flex-start; }
+      .grid { grid-template-columns: 1fr; }
+      .purchase-form { grid-template-columns: 1fr 1fr; }
+      .purchase-form > input:first-child, .add { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 600px) {
+      .field, .editable-row { grid-template-columns: 1fr; gap: 7px; }
+      .purchase-form { grid-template-columns: 1fr; }
+      input { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Бюджет месяца</h1>
+        <div class="subtitle">Доход, платежи, резерв и покупки в PLN или EUR</div>
+      </div>
+      <div class="month-tools">
+        <div class="sync-status"><div class="sync-dot" id="syncDot"></div><span id="syncLabel">не настроено</span></div>
+        <select id="monthSelect" aria-label="Месяц"></select>
+        <button class="btn primary" id="addMonthBtn" type="button">Новый месяц</button>
+        <button class="btn" id="settingsBtn" type="button">⚙ Gist</button>
+        <button class="btn" id="resetBtn" type="button">Сбросить</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="section-head">
+          <h2>Доход</h2>
+          <span class="hint">EUR -> PLN</span>
+        </div>
+        <div class="fields">
+          <div class="field">
+            <label for="incomeEur">Доход, EUR</label>
+            <input id="incomeEur" type="number" min="0" step="0.01">
+          </div>
+          <div class="field">
+            <label for="eurPln">Курс EUR/PLN</label>
+            <input id="eurPln" type="number" min="0" step="0.0001">
+          </div>
+        </div>
+        <div class="summary">
+          <div class="summary-row"><span>Доход в PLN</span><strong id="incomePln">0 PLN</strong></div>
+        </div>
+      </article>
+
+      <article class="card total">
+        <div class="hint">Остаток денег на месяц</div>
+        <div class="total-number" id="freeMoney">0 PLN</div>
+        <div class="total-note" id="totalNote">Считается автоматически.</div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Обязательные платежи</h2>
+          <div class="section-actions">
+            <button class="btn" id="addExpenseBtn" type="button">Добавить</button>
+          </div>
+        </div>
+        <div class="list" id="expenseFields"></div>
+        <div class="summary">
+          <div class="summary-row"><span>Всего платежей</span><strong id="mandatoryTotal">0 PLN</strong></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Резерв</h2>
+          <span class="hint">PLN или EUR</span>
+        </div>
+        <div class="fields">
+          <div class="field">
+            <label for="reserveAmount">Сумма резерва</label>
+            <div class="money-input">
+              <input id="reserveAmount" type="number" min="0" step="0.01">
+              <select id="reserveCurrency" aria-label="Валюта резерва">
+                <option>PLN</option>
+                <option>EUR</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="summary">
+          <div class="summary-row"><span>Резерв в PLN</span><strong id="reservePln">0 PLN</strong></div>
+          <div class="summary-row"><span>Резерв в EUR</span><strong id="reserveEur">0 EUR</strong></div>
+          <div class="summary-row"><span>После покупок из резерва</span><strong id="reserveAfter">0 PLN</strong></div>
+        </div>
+      </article>
+
+      <article class="card wide">
+        <div class="section-head">
+          <h2>Покупки</h2>
+          <span class="hint">фактические траты</span>
+        </div>
+        <div class="purchase-form" id="realPurchaseForm"></div>
+        <div class="purchases" id="purchases"></div>
+        <div class="summary">
+          <div class="summary-row"><span>Покупки из свободных денег</span><strong id="purchasesFree">0 PLN</strong></div>
+          <div class="summary-row"><span>Покупки из резерва</span><strong id="purchasesReserve">0 PLN</strong></div>
+          <div class="summary-row"><span>Покупки всего</span><strong id="purchasesTotal">0 PLN</strong></div>
+        </div>
+      </article>
+
+      <article class="card wide">
+        <div class="section-head">
+          <h2>Возможные покупки</h2>
+          <span class="hint">сценарий до покупки</span>
+        </div>
+        <div class="purchase-form" id="plannedPurchaseForm"></div>
+        <div class="purchases" id="plannedPurchases"></div>
+        <div class="summary">
+          <div class="summary-row"><span>Возможные покупки всего</span><strong id="plannedTotal">0 PLN</strong></div>
+          <div class="summary-row"><span>Остаток, если купить всё возможное</span><strong id="projectedFreeMoney">0 PLN</strong></div>
+          <div class="summary-row"><span>Резерв, если купить всё возможное</span><strong id="projectedReserve">0 PLN</strong></div>
+        </div>
+      </article>
+
+      <article class="card wide">
+        <div class="section-head">
+          <h2>Накопления по месяцам</h2>
+          <span class="hint">остаток резерва в EUR</span>
+        </div>
+        <div class="chart-wrap" id="chartWrap"><canvas id="savingsChart"></canvas></div>
+      </article>
+    </section>
+  </main>
+
+  <!-- ── Settings / Gist panel ── -->
+  <div id="settingsPanel" role="dialog" aria-modal="true" aria-label="Настройки Gist">
+    <div class="settings-box">
+      <h3>☁ Синхронизация через GitHub Gist</h3>
+      <p>Данные хранятся в приватном Gist — доступны с любого устройства.<br>
+         Токен сохраняется только в <code>localStorage</code> этого браузера и никуда не отправляется кроме api.github.com.</p>
+
+      <label for="inputToken">Personal Access Token (scope: gist)</label>
+      <input type="password" id="inputToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+
+      <label for="inputGistId">Gist ID</label>
+      <input type="text" id="inputGistId" placeholder="a1b2c3d4e5f6..." autocomplete="off" spellcheck="false">
+
+      <p style="margin-top:-6px">
+        Создать токен: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> → scope <strong>gist</strong><br>
+        Создать пустой Gist: <a href="https://gist.github.com" target="_blank" rel="noopener">gist.github.com</a> → файл <code>budget.json</code>, содержимое <code>{}</code>, Secret gist
+      </p>
+
+      <div class="settings-row">
+        <button class="btn primary" id="saveSettingsBtn" type="button">Сохранить и загрузить</button>
+        <button class="btn" id="closeSettingsBtn" type="button">Закрыть</button>
+      </div>
+      <div style="margin-top:12px;font-size:13px;color:var(--muted)" id="settingsStatus"></div>
+    </div>
+  </div>
+
+
+    // ── Storage keys (localStorage is used ONLY for credentials + offline fallback) ──
+    const STORAGE_KEY        = "simple-budget-calculator-pl-v3";
+    const previousStorageKeys = ["simple-budget-calculator-pl-v2", "simple-budget-calculator-pl-v1"];
+    const CREDS_KEY          = "budget_gist_creds"; // { token, gistId }
+
+    const formatter = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+    const defaultMonthKey = monthKey(new Date());
+
+    // ── Gist API helpers ──────────────────────────────────────────────────────
+
+    function getCreds() {
+      try { return JSON.parse(localStorage.getItem(CREDS_KEY)) || {}; } catch { return {}; }
+    }
+
+    function setCreds(token, gistId) {
+      localStorage.setItem(CREDS_KEY, JSON.stringify({ token, gistId }));
+    }
+
+    function setSyncStatus(state) {
+      // state: 'busy' | 'ok' | 'err' | 'offline'
+      const dot   = document.getElementById("syncDot");
+      const label = document.getElementById("syncLabel");
+      dot.className = "sync-dot " + (state === "offline" ? "" : state);
+      const texts = { busy: "сохранение…", ok: "синхронизировано", err: "ошибка синхронизации", offline: "локально" };
+      label.textContent = texts[state] || state;
+    }
+
+    async function gistLoad() {
+      const { token, gistId } = getCreds();
+      if (!token || !gistId) return null;
+      setSyncStatus("busy");
+      try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+          headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json" }
+        });
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        const content = data.files?.["budget.json"]?.content;
+        if (!content) return null;
+        setSyncStatus("ok");
+        return JSON.parse(content);
+      } catch (e) {
+        setSyncStatus("err");
+        console.warn("Gist load failed:", e);
+        return null;
+      }
+    }
+
+    // Debounced save — waits 1.2s after last change to avoid spamming the API
+    let saveTimer = null;
+    async function gistSave(data) {
+      const { token, gistId } = getCreds();
+      if (!token || !gistId) {
+        // No Gist configured — silently fall back to localStorage only
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        setSyncStatus("offline");
+        return;
+      }
+      // Always write to localStorage immediately as backup
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      setSyncStatus("busy");
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+            method: "PATCH",
+            headers: {
+              Authorization: `token ${token}`,
+              Accept: "application/vnd.github+json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ files: { "budget.json": { content: JSON.stringify(data, null, 2) } } })
+          });
+          if (!res.ok) throw new Error(res.status);
+          setSyncStatus("ok");
+        } catch (e) {
+          setSyncStatus("err");
+          console.warn("Gist save failed:", e);
+        }
+      }, 1200);
+    }
+
+    // ── State load/save (replaces old localStorage-only versions) ────────────
+
+    function loadStateFromLocal() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved?.months) return normalizeState(saved);
+        for (const key of previousStorageKeys) {
+          const old = JSON.parse(localStorage.getItem(key));
+          if (old) return normalizeState(old.months ? old : migrateV1(old));
+        }
+      } catch { /* fall through */ }
+      return structuredClone(defaults);
+    }
+
+    function loadState() {
+      // Synchronous local load for instant first paint.
+      // Async Gist fetch happens after in initGist().
+      return loadStateFromLocal();
+    }
+
+    async function initGist() {
+      const { token, gistId } = getCreds();
+      if (!token || !gistId) { setSyncStatus("offline"); return; }
+      const remote = await gistLoad();
+      if (remote?.months) {
+        state = normalizeState(remote);
+        render();
+      }
+    }
+
+    function saveState() {
+      gistSave(state); // async, non-blocking
+    }
+
+    const defaultExpenses = [
+      expenseItem("PIT", 1146),
+      expenseItem("ZUS", 498),
+      expenseItem("Кредит + коммуналка", 2500),
+      expenseItem("Офис", 1400),
+      expenseItem("Корм кошке", 300)
+    ];
+
+    const defaults = {
+      activeMonth: defaultMonthKey,
+      months: {
+        [defaultMonthKey]: createMonth({
+          incomeEur: 3250,
+          eurPln: 4.24,
+          expenses: structuredClone(defaultExpenses),
+          reserve: moneyItem(2968),
+          purchases: [
+            {
+              id: crypto.randomUUID(),
+              name: "Умные часы",
+              cost: moneyItem(900),
+              fromFree: moneyItem(450),
+              fromReserve: moneyItem(450)
+            }
+          ],
+          plannedPurchases: []
+        })
+      }
+    };
+
+    let state = loadState();
+    let savingsChart;
+
+    const els = {
+      monthSelect: document.querySelector("#monthSelect"),
+      addMonthBtn: document.querySelector("#addMonthBtn"),
+      resetBtn: document.querySelector("#resetBtn"),
+      incomeEur: document.querySelector("#incomeEur"),
+      eurPln: document.querySelector("#eurPln"),
+      addExpenseBtn: document.querySelector("#addExpenseBtn"),
+      expenseFields: document.querySelector("#expenseFields"),
+      reserveAmount: document.querySelector("#reserveAmount"),
+      reserveCurrency: document.querySelector("#reserveCurrency"),
+      incomePln: document.querySelector("#incomePln"),
+      mandatoryTotal: document.querySelector("#mandatoryTotal"),
+      reservePln: document.querySelector("#reservePln"),
+      reserveEur: document.querySelector("#reserveEur"),
+      reserveAfter: document.querySelector("#reserveAfter"),
+      freeMoney: document.querySelector("#freeMoney"),
+      totalNote: document.querySelector("#totalNote"),
+      realPurchaseForm: document.querySelector("#realPurchaseForm"),
+      plannedPurchaseForm: document.querySelector("#plannedPurchaseForm"),
+      purchases: document.querySelector("#purchases"),
+      plannedPurchases: document.querySelector("#plannedPurchases"),
+      purchasesFree: document.querySelector("#purchasesFree"),
+      purchasesReserve: document.querySelector("#purchasesReserve"),
+      purchasesTotal: document.querySelector("#purchasesTotal"),
+      plannedTotal: document.querySelector("#plannedTotal"),
+      projectedFreeMoney: document.querySelector("#projectedFreeMoney"),
+      projectedReserve: document.querySelector("#projectedReserve"),
+      chartWrap: document.querySelector("#chartWrap")
+    };
+
+    function moneyItem(amount = 0, currency = "PLN") {
+      return { amount, currency };
+    }
+
+    function expenseItem(name = "Новый платеж", amount = 0, currency = "PLN") {
+      return { id: crypto.randomUUID(), name, amount, currency, paid: false };
+    }
+
+    function createMonth(overrides = {}) {
+      return {
+        incomeEur: 0,
+        eurPln: 4.24,
+        expenses: structuredClone(defaultExpenses),
+        reserve: moneyItem(),
+        purchases: [],
+        plannedPurchases: [],
+        ...overrides
+      };
+    }
+
+    function monthKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    function monthName(key) {
+      const [year, month] = key.split("-").map(Number);
+      return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+    }
+
+    function migrateV1(old) {
+      return {
+        activeMonth: defaultMonthKey,
+        months: {
+          [defaultMonthKey]: createMonth({
+            incomeEur: old.incomeEur ?? 3250,
+            eurPln: old.eurPln ?? 4.24,
+            expenses: [
+              expenseItem("PIT", old.pit ?? 1146),
+              expenseItem("ZUS", old.zus ?? 498),
+              expenseItem("Кредит + коммуналка", old.creditUtilities ?? 2500),
+              expenseItem("Офис", old.officeRent ?? 1400),
+              expenseItem("Корм кошке", old.catFood ?? 300)
+            ],
+            reserve: moneyItem(old.reservePln ?? 2968),
+            purchases: (old.purchases || []).map(normalizePurchase),
+            plannedPurchases: []
+          })
+        }
+      };
+    }
+
+    function normalizeState(input) {
+      const normalized = {
+        activeMonth: input.activeMonth || defaultMonthKey,
+        months: {}
+      };
+
+      Object.entries(input.months || {}).forEach(([key, month]) => {
+        normalized.months[key] = {
+          incomeEur: number(month.incomeEur),
+          eurPln: number(month.eurPln) || 4.24,
+          expenses: normalizeExpenses(month.expenses),
+          reserve: normalizeMoney(month.reserve || moneyItem(month.reservePln || 0)),
+          purchases: (month.purchases || []).map(normalizePurchase),
+          plannedPurchases: (month.plannedPurchases || []).map(normalizePurchase)
+        };
+      });
+
+      if (!normalized.months[normalized.activeMonth]) {
+        normalized.activeMonth = Object.keys(normalized.months)[0] || defaultMonthKey;
+      }
+
+      if (!Object.keys(normalized.months).length) return structuredClone(defaults);
+      return normalized;
+    }
+
+    function normalizeExpenses(expenses) {
+      if (Array.isArray(expenses)) {
+        return expenses.map(item => ({
+          id: item.id || crypto.randomUUID(),
+          name: item.name || "Платеж",
+          amount: number(item.amount),
+          currency: item.currency === "EUR" ? "EUR" : "PLN",
+          paid: !!item.paid
+        }));
+      }
+
+      const names = {
+        pit: "PIT",
+        zus: "ZUS",
+        creditUtilities: "Кредит + коммуналка",
+        officeRent: "Офис",
+        catFood: "Корм кошке"
+      };
+
+      return Object.entries(expenses || {}).map(([key, item]) => ({
+        id: crypto.randomUUID(),
+        name: names[key] || key,
+        amount: number(item?.amount ?? item),
+        currency: item?.currency === "EUR" ? "EUR" : "PLN"
+      }));
+    }
+
+    function normalizeMoney(item) {
+      if (typeof item === "number") return moneyItem(item);
+      return {
+        amount: number(item?.amount),
+        currency: item?.currency === "EUR" ? "EUR" : "PLN"
+      };
+    }
+
+    function normalizePurchase(item) {
+      return {
+        id: item.id || crypto.randomUUID(),
+        name: item.name || "Покупка",
+        cost: normalizeMoney(item.cost || moneyItem(item.costPln || item.cost || 0)),
+        fromFree: normalizeMoney(item.fromFree || moneyItem(0)),
+        fromReserve: normalizeMoney(item.fromReserve || moneyItem(0))
+      };
+    }
+
+    function activeMonth() {
+      return state.months[state.activeMonth];
+    }
+
+    function number(value) {
+      return Math.max(0, Number(value || 0));
+    }
+
+    function toPln(item, month = activeMonth()) {
+      return number(item?.amount) * (item?.currency === "EUR" ? number(month.eurPln) : 1);
+    }
+
+    function pln(value) {
+      return `${formatter.format(value || 0)} PLN`;
+    }
+
+    function eur(value) {
+      return `${formatter.format(value || 0)} EUR`;
+    }
+
+    function plnToEur(value, month = activeMonth()) {
+      return number(month.eurPln) ? value / number(month.eurPln) : 0;
+    }
+
+    function originalAmount(item) {
+      return `${formatter.format(item.amount || 0)} ${item.currency}`;
+    }
+
+    function purchaseTotals(list, month = activeMonth()) {
+      return {
+        free: list.reduce((sum, item) => sum + toPln(item.fromFree, month), 0),
+        reserve: list.reduce((sum, item) => sum + toPln(item.fromReserve, month), 0),
+        total: list.reduce((sum, item) => sum + toPln(item.cost, month), 0)
+      };
+    }
+
+    function totals(month = activeMonth()) {
+      const incomePln = number(month.incomeEur) * number(month.eurPln);
+      const mandatory = month.expenses.reduce((sum, item) => sum + toPln(item, month), 0);
+      const reservePln = toPln(month.reserve, month);
+      const actual = purchaseTotals(month.purchases, month);
+      const planned = purchaseTotals(month.plannedPurchases, month);
+      const reserveAfter = reservePln - actual.reserve;
+      const freeMoney = incomePln - mandatory - reservePln - actual.free;
+      const projectedFreeMoney = freeMoney - planned.free;
+      const projectedReserve = reserveAfter - planned.reserve;
+      return { incomePln, mandatory, reservePln, actual, planned, reserveAfter, freeMoney, projectedFreeMoney, projectedReserve };
+    }
+
+    function renderMonthSelect() {
+      const keys = Object.keys(state.months).sort();
+      els.monthSelect.innerHTML = keys.map(key => `<option value="${key}">${monthName(key)}</option>`).join("");
+      els.monthSelect.value = state.activeMonth;
+    }
+
+    function renderExpenseFields() {
+      const month = activeMonth();
+      els.expenseFields.innerHTML = month.expenses.map(item => `
+        <div class="editable-row${item.paid ? ' is-paid' : ''}">
+          <input class="text-left" data-expense-name="${item.id}" type="text" value="${escapeAttr(item.name)}" aria-label="Название платежа">
+          <div class="money-input">
+            <input data-expense-amount="${item.id}" type="number" min="0" step="0.01" value="${item.amount}">
+            <select data-expense-currency="${item.id}" aria-label="Валюта ${escapeAttr(item.name)}">
+              <option ${item.currency === "PLN" ? "selected" : ""}>PLN</option>
+              <option ${item.currency === "EUR" ? "selected" : ""}>EUR</option>
+            </select>
+          </div>
+          <div class="paid-wrap">
+            <input class="paid-cb" type="checkbox" data-expense-paid="${item.id}" ${item.paid ? "checked" : ""} title="Оплачено / перенесено на счёт">
+          </div>
+          <button class="delete" data-delete-expense="${item.id}" type="button" aria-label="Удалить платеж">x</button>
+        </div>
+      `).join("");
+    }
+
+    function renderPurchaseForm(target) {
+      const prefix = target === "actual" ? "purchase" : "planned";
+      const container = target === "actual" ? els.realPurchaseForm : els.plannedPurchaseForm;
+      container.innerHTML = `
+        <input id="${prefix}Name" type="text" placeholder="Название">
+        <div class="money-input">
+          <input id="${prefix}Cost" type="number" min="0" step="0.01" placeholder="Стоимость">
+          <select id="${prefix}CostCurrency" aria-label="Валюта стоимости"><option>PLN</option><option>EUR</option></select>
+        </div>
+        <div class="money-input">
+          <input id="${prefix}Free" type="number" min="0" step="0.01" placeholder="Из денег">
+          <select id="${prefix}FreeCurrency" aria-label="Валюта свободных денег"><option>PLN</option><option>EUR</option></select>
+        </div>
+        <div class="money-input">
+          <input id="${prefix}Reserve" type="number" min="0" step="0.01" placeholder="Из резерва">
+          <select id="${prefix}ReserveCurrency" aria-label="Валюта резерва"><option>PLN</option><option>EUR</option></select>
+        </div>
+        <button class="add" data-add-${target} type="button" aria-label="Добавить покупку">+</button>
+      `;
+    }
+
+    function renderInputs() {
+      const month = activeMonth();
+      els.incomeEur.value = month.incomeEur;
+      els.eurPln.value = month.eurPln;
+      els.reserveAmount.value = month.reserve.amount;
+      els.reserveCurrency.value = month.reserve.currency;
+      renderExpenseFields();
+      renderPurchaseForm("actual");
+      renderPurchaseForm("planned");
+    }
+
+    function renderPurchaseList(target) {
+      const month = activeMonth();
+      const list = target === "actual" ? month.purchases : month.plannedPurchases;
+      const container = target === "actual" ? els.purchases : els.plannedPurchases;
+      if (!list.length) {
+        container.innerHTML = `<div class="hint">${target === "actual" ? "Покупок пока нет." : "Возможных покупок пока нет."}</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(item => `
+        <div class="purchase-row">
+          <div class="purchase-main">
+            <strong>${escapeHtml(item.name)} · ${originalAmount(item.cost)} (${pln(toPln(item.cost))})</strong>
+            <span>из денег ${originalAmount(item.fromFree)} · из резерва ${originalAmount(item.fromReserve)}</span>
+          </div>
+          <div class="row-actions">
+            ${target === "planned" ? `<button class="mini" data-move-planned="${item.id}" type="button" aria-label="Перенести в покупки">→</button>` : ""}
+            <button class="delete" data-delete-${target}="${item.id}" type="button" aria-label="Удалить покупку">x</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderTotals() {
+      const t = totals();
+      els.incomePln.textContent = pln(t.incomePln);
+      els.mandatoryTotal.textContent = pln(t.mandatory);
+      els.reservePln.textContent = pln(t.reservePln);
+      els.reserveEur.textContent = eur(plnToEur(t.reservePln));
+      els.reserveAfter.textContent = `${pln(t.reserveAfter)} / ${eur(plnToEur(t.reserveAfter))}`;
+      els.freeMoney.textContent = pln(t.freeMoney);
+      els.purchasesFree.textContent = pln(t.actual.free);
+      els.purchasesReserve.textContent = pln(t.actual.reserve);
+      els.purchasesTotal.textContent = pln(t.actual.total);
+      els.plannedTotal.textContent = pln(t.planned.total);
+      els.projectedFreeMoney.textContent = pln(t.projectedFreeMoney);
+      els.projectedReserve.textContent = `${pln(t.projectedReserve)} / ${eur(plnToEur(t.projectedReserve))}`;
+      els.totalNote.innerHTML = `Доход <span class="orange">${pln(t.incomePln)}</span> - платежи ${pln(t.mandatory)} - резерв ${pln(t.reservePln)} - покупки из денег ${pln(t.actual.free)}.`;
+    }
+
+    function renderChart() {
+      if (typeof Chart === "undefined") {
+        els.chartWrap.innerHTML = `<div class="hint">График появится, когда загрузится Chart.js.</div>`;
+        return;
+      }
+
+      const keys = Object.keys(state.months).sort();
+      const data = keys.map(key => {
+        const month = state.months[key];
+        return plnToEur(totals(month).reserveAfter, month);
+      });
+
+      if (savingsChart) savingsChart.destroy();
+      savingsChart = new Chart(document.querySelector("#savingsChart"), {
+        type: "line",
+        data: {
+          labels: keys.map(monthName),
+          datasets: [{
+            label: "Резерв, EUR",
+            data,
+            borderColor: "#ff7a1a",
+            backgroundColor: "rgba(255, 122, 26, 0.13)",
+            fill: true,
+            tension: 0.35
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { callback: value => eur(value) } }
+          }
+        }
+      });
+    }
+
+    function render() {
+      renderMonthSelect();
+      renderInputs();
+      renderPurchaseList("actual");
+      renderPurchaseList("planned");
+      renderTotals();
+      renderChart();
+    }
+
+    function readPurchaseForm(target) {
+      const prefix = target === "actual" ? "purchase" : "planned";
+      const month = activeMonth();
+      const name = document.querySelector(`#${prefix}Name`).value.trim();
+      const cost = moneyItem(number(document.querySelector(`#${prefix}Cost`).value), document.querySelector(`#${prefix}CostCurrency`).value);
+      let fromFree = moneyItem(number(document.querySelector(`#${prefix}Free`).value), document.querySelector(`#${prefix}FreeCurrency`).value);
+      const fromReserve = moneyItem(number(document.querySelector(`#${prefix}Reserve`).value), document.querySelector(`#${prefix}ReserveCurrency`).value);
+
+      if (!name || cost.amount <= 0) return null;
+      if (toPln(fromFree, month) + toPln(fromReserve, month) === 0) fromFree = moneyItem(cost.amount, cost.currency);
+      if (Math.abs(toPln(fromFree, month) + toPln(fromReserve, month) - toPln(cost, month)) > 0.01) return null;
+
+      return { id: crypto.randomUUID(), name, cost, fromFree, fromReserve };
+    }
+
+    function addPurchase(target) {
+      const purchase = readPurchaseForm(target);
+      if (!purchase) return;
+      const month = activeMonth();
+      if (target === "actual") month.purchases.push(purchase);
+      else month.plannedPurchases.push(purchase);
+      saveState();
+      render();
+    }
+
+    function addNextMonth() {
+      const currentKey = state.activeMonth;
+      const [year, month] = currentKey.split("-").map(Number);
+      const nextKey = monthKey(new Date(year, month, 1));
+      const current = activeMonth();
+
+      if (!state.months[nextKey]) {
+        state.months[nextKey] = createMonth({
+          incomeEur: current.incomeEur,
+          eurPln: current.eurPln,
+          expenses: structuredClone(current.expenses),
+          reserve: moneyItem(Math.max(0, totals(current).reserveAfter), "PLN"),
+          purchases: [],
+          plannedPurchases: []
+        });
+      }
+
+      state.activeMonth = nextKey;
+      saveState();
+      render();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, "&#096;");
+    }
+
+    els.monthSelect.addEventListener("change", event => {
+      state.activeMonth = event.target.value;
+      saveState();
+      render();
+    });
+
+    els.addMonthBtn.addEventListener("click", addNextMonth);
+
+    els.resetBtn.addEventListener("click", () => {
+      state = structuredClone(defaults);
+      saveState();
+      render();
+    });
+
+    els.incomeEur.addEventListener("input", event => {
+      activeMonth().incomeEur = number(event.target.value);
+      saveState();
+      renderTotals();
+      renderChart();
+    });
+
+    els.eurPln.addEventListener("input", event => {
+      activeMonth().eurPln = number(event.target.value);
+      saveState();
+      renderTotals();
+      renderChart();
+    });
+
+    els.reserveAmount.addEventListener("input", event => {
+      activeMonth().reserve.amount = number(event.target.value);
+      saveState();
+      renderTotals();
+      renderChart();
+    });
+
+    els.reserveCurrency.addEventListener("change", event => {
+      activeMonth().reserve.currency = event.target.value;
+      saveState();
+      renderTotals();
+      renderChart();
+    });
+
+    els.addExpenseBtn.addEventListener("click", () => {
+      activeMonth().expenses.push(expenseItem());
+      saveState();
+      render();
+    });
+
+    els.expenseFields.addEventListener("input", event => {
+      const month = activeMonth();
+      const nameId = event.target.dataset.expenseName;
+      const amountId = event.target.dataset.expenseAmount;
+      if (nameId) month.expenses.find(item => item.id === nameId).name = event.target.value;
+      if (amountId) month.expenses.find(item => item.id === amountId).amount = number(event.target.value);
+      saveState();
+      renderTotals();
+    });
+
+    els.expenseFields.addEventListener("change", event => {
+      const id = event.target.dataset.expenseCurrency;
+      if (!id) return;
+      activeMonth().expenses.find(item => item.id === id).currency = event.target.value;
+      saveState();
+      renderTotals();
+    });
+
+    els.expenseFields.addEventListener("click", event => {
+      const deleteId = event.target.dataset.deleteExpense;
+      const paidId = event.target.dataset.expensePaid;
+
+      if (deleteId) {
+        activeMonth().expenses = activeMonth().expenses.filter(item => item.id !== deleteId);
+        saveState();
+        render();
+        return;
+      }
+
+      if (paidId) {
+        const expense = activeMonth().expenses.find(item => item.id === paidId);
+        if (expense) {
+          expense.paid = event.target.checked;
+          saveState();
+          // Toggle class directly without full re-render to avoid losing focus
+          const row = event.target.closest(".editable-row");
+          if (row) row.classList.toggle("is-paid", expense.paid);
+        }
+      }
+    });
+
+    els.realPurchaseForm.addEventListener("click", event => {
+      if (event.target.dataset.addActual !== undefined) addPurchase("actual");
+    });
+
+    els.plannedPurchaseForm.addEventListener("click", event => {
+      if (event.target.dataset.addPlanned !== undefined) addPurchase("planned");
+    });
+
+    [els.realPurchaseForm, els.plannedPurchaseForm].forEach((form, index) => {
+      form.addEventListener("keydown", event => {
+        if (event.key === "Enter") addPurchase(index === 0 ? "actual" : "planned");
+      });
+    });
+
+    els.purchases.addEventListener("click", event => {
+      const id = event.target.dataset.deleteActual;
+      if (!id) return;
+      activeMonth().purchases = activeMonth().purchases.filter(item => item.id !== id);
+      saveState();
+      render();
+    });
+
+    els.plannedPurchases.addEventListener("click", event => {
+      const month = activeMonth();
+      const deleteId = event.target.dataset.deletePlanned;
+      const moveId = event.target.dataset.movePlanned;
+
+      if (deleteId) {
+        month.plannedPurchases = month.plannedPurchases.filter(item => item.id !== deleteId);
+      }
+
+      if (moveId) {
+        const purchase = month.plannedPurchases.find(item => item.id === moveId);
+        if (purchase) {
+          month.purchases.push({ ...structuredClone(purchase), id: crypto.randomUUID() });
+          month.plannedPurchases = month.plannedPurchases.filter(item => item.id !== moveId);
+        }
+      }
+
+      saveState();
+      render();
+    });
+
+    // ── Settings panel ────────────────────────────────────────────────────────
+
+    const settingsPanel = document.getElementById("settingsPanel");
+    const inputToken    = document.getElementById("inputToken");
+    const inputGistId   = document.getElementById("inputGistId");
+    const settingsStatus = document.getElementById("settingsStatus");
+
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+      const creds = getCreds();
+      inputToken.value  = creds.token  || "";
+      inputGistId.value = creds.gistId || "";
+      settingsStatus.textContent = "";
+      settingsPanel.classList.add("open");
+    });
+
+    document.getElementById("closeSettingsBtn").addEventListener("click", () => {
+      settingsPanel.classList.remove("open");
+    });
+
+    settingsPanel.addEventListener("click", e => {
+      if (e.target === settingsPanel) settingsPanel.classList.remove("open");
+    });
+
+    document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
+      const token  = inputToken.value.trim();
+      const gistId = inputGistId.value.trim();
+      if (!token || !gistId) {
+        settingsStatus.textContent = "⚠ Заполни оба поля.";
+        return;
+      }
+      settingsStatus.textContent = "Проверяю…";
+      setCreds(token, gistId);
+      const remote = await gistLoad();
+      if (remote?.months) {
+        state = normalizeState(remote);
+        render();
+        settingsStatus.textContent = "✓ Подключено! Данные загружены из Gist.";
+      } else if (remote !== null) {
+        // Gist exists but empty/invalid — push current state there
+        await gistSave(state);
+        settingsStatus.textContent = "✓ Подключено! Текущие данные записаны в Gist.";
+      } else {
+        settingsStatus.textContent = "✗ Не получилось. Проверь токен и Gist ID.";
+      }
+    });
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    render();
+    initGist(); // async: refreshes from Gist after first paint
+</body>
+</html>
