@@ -418,7 +418,10 @@
     }
 
     @media (max-width: 600px) {
-      .field, .editable-row { grid-template-columns: 1fr; gap: 7px; }
+      .field { grid-template-columns: 1fr; gap: 7px; }
+      .editable-row { grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: center; }
+      .editable-row .money-input { min-width: 0; }
+      .editable-row .money-input input { width: 70px; }
       .purchase-form { grid-template-columns: 1fr; }
       input { text-align: left; }
     }
